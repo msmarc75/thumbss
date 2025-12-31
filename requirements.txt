@@ -5,3 +5,4 @@ pytest
 Pillow
 flask
 yt-dlp
+gunicorn
