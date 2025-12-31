@@ -6,7 +6,7 @@ import uuid
 import re
 from openai import OpenAI, AuthenticationError
 from dotenv import load_dotenv
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 
 # Load environment variables
 load_dotenv()
@@ -32,9 +32,106 @@ class YoutubeOptimizer:
         filename = filename[:200]
         return filename
 
-    def process_and_compress_image(self, img_content, output_path, max_size_mb=2.0):
+    def add_text_overlay(self, image, title):
         """
-        Crops the image to 16:9 aspect ratio and compresses it to be under max_size_mb.
+        Adds the title as a text overlay on the image.
+        Uses a bold font, white text with black outline, centered.
+        """
+        draw = ImageDraw.Draw(image)
+        width, height = image.size
+
+        # Try to load a nice font, fallback to default
+        font_size = int(height * 0.15) # Start with 15% of image height
+        try:
+            # Try some common bold fonts
+            font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+            if not os.path.exists(font_path):
+                 font_path = "arialbd.ttf" # Windows fallback?
+
+            font = ImageFont.truetype(font_path, font_size)
+        except IOError:
+            print("       Police non trouvée, utilisation de la police par défaut.")
+            font = ImageFont.load_default()
+
+        # Wrap text logic
+        lines = []
+        words = title.split()
+        current_line = []
+
+        # Safety for very long words or titles
+        margin = int(width * 0.05)
+        max_width = width - (2 * margin)
+
+        # Helper to check text width
+        def get_text_width(text, font):
+            bbox = draw.textbbox((0, 0), text, font=font)
+            return bbox[2] - bbox[0]
+
+        # Iteratively reduce font size if a single word is too big
+        while font_size > 20:
+             # Check if longest word fits
+             longest_word = max(words, key=len) if words else ""
+             if get_text_width(longest_word, font) < max_width:
+                 break
+             font_size -= 5
+             try:
+                 font = ImageFont.truetype(font_path, font_size)
+             except:
+                 pass
+
+        # Wrap words
+        for word in words:
+            test_line = ' '.join(current_line + [word])
+            w = get_text_width(test_line, font)
+            if w <= max_width:
+                current_line.append(word)
+            else:
+                if current_line:
+                    lines.append(' '.join(current_line))
+                    current_line = [word]
+                else:
+                    # Word is wider than line, just append it (we shrank font earlier as best as possible)
+                    lines.append(word)
+        if current_line:
+            lines.append(' '.join(current_line))
+
+        # If too many lines, shrink font and retry (simple recursive retry or just shrink)
+        # For now, let's just calculate height and center it.
+
+        line_height = bbox = draw.textbbox((0, 0), "Aj", font=font)[3] - draw.textbbox((0, 0), "Aj", font=font)[1]
+        line_height = line_height * 1.2 # Add spacing
+
+        total_text_height = len(lines) * line_height
+
+        start_y = (height - total_text_height) // 2
+
+        # Draw text with outline
+        outline_width = max(2, int(font_size / 15))
+
+        for i, line in enumerate(lines):
+            line_w = get_text_width(line, font)
+            x = (width - line_w) // 2
+            y = start_y + (i * line_height)
+
+            # Draw outline
+            draw.text((x-outline_width, y-outline_width), line, font=font, fill="black")
+            draw.text((x+outline_width, y-outline_width), line, font=font, fill="black")
+            draw.text((x-outline_width, y+outline_width), line, font=font, fill="black")
+            draw.text((x+outline_width, y+outline_width), line, font=font, fill="black")
+            # Draw extra diagonal outline for thickness
+            draw.text((x-outline_width, y), line, font=font, fill="black")
+            draw.text((x+outline_width, y), line, font=font, fill="black")
+            draw.text((x, y-outline_width), line, font=font, fill="black")
+            draw.text((x, y+outline_width), line, font=font, fill="black")
+
+            # Draw main text
+            draw.text((x, y), line, font=font, fill="white")
+
+        return image
+
+    def process_and_compress_image(self, img_content, output_path, title=None, max_size_mb=2.0):
+        """
+        Crops the image to 16:9 aspect ratio, adds title overlay if provided, and compresses.
         """
         try:
             image = Image.open(io.BytesIO(img_content))
@@ -62,6 +159,11 @@ class YoutubeOptimizer:
                     left = (width - new_width) // 2
                     right = left + new_width
                     image = image.crop((left, 0, right, height))
+
+            # Add text overlay if title is provided
+            if title:
+                print(f"       Ajout du titre sur l'image...")
+                image = self.add_text_overlay(image, title)
 
             # Compression loop
             quality = 95
@@ -114,7 +216,7 @@ class YoutubeOptimizer:
                 raise ValueError("L'API n'a retourné ni URL ni données base64 pour l'image.")
 
             # Save, crop and compress
-            return self.process_and_compress_image(img_content, output_path)
+            return self.process_and_compress_image(img_content, output_path, title=title)
             
         except AuthenticationError as e:
             print(f"Erreur d'authentification : Votre clé API est invalide. Veuillez vérifier votre fichier .env.")
