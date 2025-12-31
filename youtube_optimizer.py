@@ -204,8 +204,8 @@ class YoutubeOptimizer:
         Génère une miniature pour la vidéo via l'API (Together AI ou OpenAI) et la sauvegarde localement.
         """
         try:
-            # We add "catchy" keywords to the prompt since the user requested catchy thumbnails
-            prompt = f"A high quality, catchy YouTube thumbnail for a video titled '{title}'. Bright colors, high contrast, 16:9 aspect ratio. No text."
+            # Catchy prompt for high CTR, strictly no text or logos
+            prompt = f"A viral, click-bait style YouTube thumbnail for the subject: '{title}'. Vivid colors, expressive, high impact, professional photography style, 4k resolution. NO TEXT, NO LOGOS."
             
             # Default OpenAI settings (optimized for cost)
             model = "dall-e-3"
@@ -242,7 +242,8 @@ class YoutubeOptimizer:
                 raise ValueError("L'API n'a retourné ni URL ni données base64 pour l'image.")
 
             # Save, crop and compress
-            return self.process_and_compress_image(img_content, output_path, title=title)
+            # title=None disables the text overlay as requested
+            return self.process_and_compress_image(img_content, output_path, title=None)
             
         except AuthenticationError as e:
             print(f"Erreur d'authentification : Votre clé API est invalide. Veuillez vérifier votre fichier .env.")
