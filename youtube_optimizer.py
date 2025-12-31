@@ -6,29 +6,18 @@ import uuid
 import re
 from openai import OpenAI, AuthenticationError
 from dotenv import load_dotenv
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image
 
 # Load environment variables
 load_dotenv()
 
 class YoutubeOptimizer:
     def __init__(self, api_key=None):
-        # Prefer TOGETHER_API_KEY, fallback to OPENAI_API_KEY if needed (though we want to use Together now)
-        self.api_key = api_key or os.getenv("TOGETHER_API_KEY") or os.getenv("OPENAI_API_KEY")
+        self.api_key = api_key or os.getenv("OPENAI_API_KEY")
         if not self.api_key:
-            raise ValueError("Aucune clé API trouvée. Veuillez définir TOGETHER_API_KEY ou OPENAI_API_KEY.")
+            raise ValueError("L'API Key OpenAI n'est pas définie. Veuillez définir la variable d'environnement OPENAI_API_KEY.")
         
-        # Determine which provider to use based on available key
-        self.provider = "together" if os.getenv("TOGETHER_API_KEY") else "openai"
-
-        if self.provider == "together":
-            # Initialize OpenAI client but pointing to Together AI base URL
-            self.client = OpenAI(
-                api_key=self.api_key,
-                base_url="https://api.together.xyz/v1"
-            )
-        else:
-            self.client = OpenAI(api_key=self.api_key)
+        self.client = OpenAI(api_key=self.api_key)
 
     def sanitize_filename(self, title):
         """
@@ -43,106 +32,9 @@ class YoutubeOptimizer:
         filename = filename[:200]
         return filename
 
-    def add_text_overlay(self, image, title):
-        """
-        Adds the title as a text overlay on the image.
-        Uses a bold font, white text with black outline, centered.
-        """
-        draw = ImageDraw.Draw(image)
-        width, height = image.size
-
-        # Try to load a nice font, fallback to default
-        font_size = int(height * 0.15) # Start with 15% of image height
-        try:
-            # Try some common bold fonts
-            font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
-            if not os.path.exists(font_path):
-                 font_path = "arialbd.ttf" # Windows fallback?
-
-            font = ImageFont.truetype(font_path, font_size)
-        except IOError:
-            print("       Police non trouvée, utilisation de la police par défaut.")
-            font = ImageFont.load_default()
-
-        # Wrap text logic
-        lines = []
-        words = title.split()
-        current_line = []
-
-        # Safety for very long words or titles
-        margin = int(width * 0.05)
-        max_width = width - (2 * margin)
-
-        # Helper to check text width
-        def get_text_width(text, font):
-            bbox = draw.textbbox((0, 0), text, font=font)
-            return bbox[2] - bbox[0]
-
-        # Iteratively reduce font size if a single word is too big
-        while font_size > 20:
-             # Check if longest word fits
-             longest_word = max(words, key=len) if words else ""
-             if get_text_width(longest_word, font) < max_width:
-                 break
-             font_size -= 5
-             try:
-                 font = ImageFont.truetype(font_path, font_size)
-             except:
-                 pass
-
-        # Wrap words
-        for word in words:
-            test_line = ' '.join(current_line + [word])
-            w = get_text_width(test_line, font)
-            if w <= max_width:
-                current_line.append(word)
-            else:
-                if current_line:
-                    lines.append(' '.join(current_line))
-                    current_line = [word]
-                else:
-                    # Word is wider than line, just append it (we shrank font earlier as best as possible)
-                    lines.append(word)
-        if current_line:
-            lines.append(' '.join(current_line))
-
-        # If too many lines, shrink font and retry (simple recursive retry or just shrink)
-        # For now, let's just calculate height and center it.
-
-        line_height = bbox = draw.textbbox((0, 0), "Aj", font=font)[3] - draw.textbbox((0, 0), "Aj", font=font)[1]
-        line_height = line_height * 1.2 # Add spacing
-
-        total_text_height = len(lines) * line_height
-
-        start_y = (height - total_text_height) // 2
-
-        # Draw text with outline
-        outline_width = max(2, int(font_size / 15))
-
-        for i, line in enumerate(lines):
-            line_w = get_text_width(line, font)
-            x = (width - line_w) // 2
-            y = start_y + (i * line_height)
-
-            # Draw outline
-            draw.text((x-outline_width, y-outline_width), line, font=font, fill="black")
-            draw.text((x+outline_width, y-outline_width), line, font=font, fill="black")
-            draw.text((x-outline_width, y+outline_width), line, font=font, fill="black")
-            draw.text((x+outline_width, y+outline_width), line, font=font, fill="black")
-            # Draw extra diagonal outline for thickness
-            draw.text((x-outline_width, y), line, font=font, fill="black")
-            draw.text((x+outline_width, y), line, font=font, fill="black")
-            draw.text((x, y-outline_width), line, font=font, fill="black")
-            draw.text((x, y+outline_width), line, font=font, fill="black")
-
-            # Draw main text
-            draw.text((x, y), line, font=font, fill="white")
-
-        return image
-
     def process_and_compress_image(self, img_content, output_path, title=None, max_size_mb=2.0):
         """
-        Crops the image to 16:9 aspect ratio, adds title overlay if provided, and compresses.
+        Crops the image to 16:9 aspect ratio and compresses.
         """
         try:
             image = Image.open(io.BytesIO(img_content))
@@ -171,11 +63,6 @@ class YoutubeOptimizer:
                     right = left + new_width
                     image = image.crop((left, 0, right, height))
 
-            # Add text overlay if title is provided
-            if title:
-                print(f"       Ajout du titre sur l'image...")
-                image = self.add_text_overlay(image, title)
-
             # Compression loop
             quality = 95
             while True:
@@ -201,34 +88,19 @@ class YoutubeOptimizer:
 
     def generate_thumbnail(self, title, output_path):
         """
-        Génère une miniature pour la vidéo via l'API (Together AI ou OpenAI) et la sauvegarde localement.
+        Génère une miniature pour la vidéo via l'API OpenAI (DALL-E 3) et la sauvegarde localement.
         """
         try:
             # Catchy prompt for high CTR, strictly no text or logos
             prompt = f"A viral, click-bait style YouTube thumbnail for the subject: '{title}'. Vivid colors, expressive, high impact, professional photography style, 4k resolution. NO TEXT, NO LOGOS."
             
-            # Default OpenAI settings (optimized for cost)
-            model = "dall-e-3"
-            size = "1024x1024"
-            quality = "standard"
-
-            if self.provider == "together":
-                model = "black-forest-labs/FLUX.1-schnell"
-                size = "1024x1024"
-                # Together/Flux doesn't typically use 'quality' param in the OpenAI compat layer in the same way,
-                # or ignores it. We remove it for Together to be safe.
-                quality = None
-
-            kwargs = {
-                "model": model,
-                "prompt": prompt,
-                "size": size,
-                "n": 1,
-            }
-            if quality:
-                kwargs["quality"] = quality
-
-            response = self.client.images.generate(**kwargs)
+            response = self.client.images.generate(
+                model="dall-e-3",
+                prompt=prompt,
+                size="1024x1024",
+                quality="standard",
+                n=1,
+            )
             
             image_data = response.data[0]
             
