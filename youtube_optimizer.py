@@ -13,11 +13,22 @@ load_dotenv()
 
 class YoutubeOptimizer:
     def __init__(self, api_key=None):
-        self.api_key = api_key or os.getenv("OPENAI_API_KEY")
+        # Prefer TOGETHER_API_KEY, fallback to OPENAI_API_KEY if needed (though we want to use Together now)
+        self.api_key = api_key or os.getenv("TOGETHER_API_KEY") or os.getenv("OPENAI_API_KEY")
         if not self.api_key:
-            raise ValueError("L'API Key OpenAI n'est pas définie. Veuillez définir la variable d'environnement OPENAI_API_KEY.")
+            raise ValueError("Aucune clé API trouvée. Veuillez définir TOGETHER_API_KEY ou OPENAI_API_KEY.")
         
-        self.client = OpenAI(api_key=self.api_key)
+        # Determine which provider to use based on available key
+        self.provider = "together" if os.getenv("TOGETHER_API_KEY") else "openai"
+
+        if self.provider == "together":
+            # Initialize OpenAI client but pointing to Together AI base URL
+            self.client = OpenAI(
+                api_key=self.api_key,
+                base_url="https://api.together.xyz/v1"
+            )
+        else:
+            self.client = OpenAI(api_key=self.api_key)
 
     def sanitize_filename(self, title):
         """
@@ -190,17 +201,32 @@ class YoutubeOptimizer:
 
     def generate_thumbnail(self, title, output_path):
         """
-        Génère une miniature pour la vidéo via l'API gpt-image-1.5 et la sauvegarde localement.
+        Génère une miniature pour la vidéo via l'API (Together AI ou OpenAI) et la sauvegarde localement.
         """
         try:
             # We add "catchy" keywords to the prompt since the user requested catchy thumbnails
             prompt = f"A high quality, catchy YouTube thumbnail for a video titled '{title}'. Bright colors, high contrast, 16:9 aspect ratio. No text."
             
+            model = "gpt-image-1.5"
+            size = "1536x1024"
+
+            if self.provider == "together":
+                model = "black-forest-labs/FLUX.1-schnell"
+                # Flux supports standard sizes, usually 1024x1024 or similar, but let's try to request landscape if possible
+                # or just standard 1024x1024 and crop. Together AI image gen usually takes width/height in body if not standard OpenAI format,
+                # but using the OpenAI client wrapper usually forces standard params.
+                # Flux via Together often maps 'size' to width/height.
+                # Let's use 1024x768 or similar if supported, otherwise 1024x1024.
+                # OpenAI client enforces 'size' enum often.
+                # If using OpenAI client with Together, we might need to be careful with 'size' param.
+                # '1024x1024' is safest.
+                size = "1024x1024"
+
             response = self.client.images.generate(
-                model="gpt-image-1.5",
+                model=model,
                 prompt=prompt,
-                size="1536x1024",
-                quality="high",
+                size=size,
+                # quality="high", # Flux via Together might not support 'quality' param
                 n=1,
             )
             
