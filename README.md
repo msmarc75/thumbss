@@ -15,7 +15,7 @@ Le projet propose une interface web simple pour faciliter l'utilisation.
 ## Prérequis
 
 *   Python 3.8+
-*   Une clé API OpenAI
+*   Une clé API OpenAI ou Together AI
 
 ## Installation
 
@@ -30,10 +30,14 @@ Le projet propose une interface web simple pour faciliter l'utilisation.
     pip install -r requirements.txt
     ```
 
-3.  Configurez votre clé API OpenAI.
-    Créez un fichier `.env` à la racine du projet et ajoutez votre clé :
+3.  Configurez votre clé API.
+    Créez un fichier `.env` à la racine du projet et ajoutez votre clé (OpenAI ou Together AI pour réduire les coûts) :
     ```
+    # Option 1 : OpenAI
     OPENAI_API_KEY=votre_clé_api_ici
+
+    # Option 2 : Together AI (Plus économique)
+    TOGETHER_API_KEY=votre_clé_api_ici
     ```
 
 ## Utilisation

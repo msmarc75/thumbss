@@ -37,14 +37,14 @@ def run_optimization_job(job_id, titles, output_dir, use_uuids=True):
             use_uuids=use_uuids, 
             progress_callback=progress_callback
         )
-        # Fix paths for web display
+        # Create URLs for web display
         for result in results:
             if result.get('thumbnail'):
-                # Ensure path starts with / and is using forward slashes
-                thumb_path = result['thumbnail'].replace('\\', '/')
-                if not thumb_path.startswith('/'):
-                    thumb_path = '/' + thumb_path
-                result['thumbnail'] = thumb_path
+                # Store the URL path separately.
+                # result['thumbnail'] keeps the filesystem path.
+                filename = os.path.basename(result['thumbnail'])
+                # Assuming standard static folder structure
+                result['url'] = f"/static/thumbnails/{filename}"
 
         JOBS[job_id]['results'] = results
         JOBS[job_id]['status'] = 'completed'
@@ -134,12 +134,14 @@ def download_all(job_id):
     with zipfile.ZipFile(memory_file, 'w', zipfile.ZIP_DEFLATED) as zf:
         for result in results:
             if result.get('thumbnail'):
-                # Convert URL path back to file path if needed
-                # result['thumbnail'] is like '/static/thumbnails/xyz.jpg'
-                # We need 'static/thumbnails/xyz.jpg' relative to CWD
+                # result['thumbnail'] should be the filesystem path now
+                file_path = result['thumbnail']
 
-                # Strip leading slash
-                file_path = result['thumbnail'].lstrip('/')
+                # Double check existence, maybe handle relative/absolute
+                if not os.path.isabs(file_path) and not os.path.exists(file_path):
+                    # Fallback: try stripping leading slash if it was there by mistake
+                     if file_path.startswith('/'):
+                         file_path = file_path.lstrip('/')
 
                 if os.path.exists(file_path):
                     # Add to zip with the base filename
