@@ -1,8 +1,10 @@
-from flask import Flask, render_template, request, redirect, url_for, jsonify
+from flask import Flask, render_template, request, redirect, url_for, jsonify, send_file
 import os
 import threading
 import uuid
 import time
+import zipfile
+import io
 from youtube_optimizer import YoutubeOptimizer
 from youtube_fetcher import fetch_channel_videos
 
@@ -35,6 +37,15 @@ def run_optimization_job(job_id, titles, output_dir, use_uuids=True):
             use_uuids=use_uuids, 
             progress_callback=progress_callback
         )
+        # Fix paths for web display
+        for result in results:
+            if result.get('thumbnail'):
+                # Ensure path starts with / and is using forward slashes
+                thumb_path = result['thumbnail'].replace('\\', '/')
+                if not thumb_path.startswith('/'):
+                    thumb_path = '/' + thumb_path
+                result['thumbnail'] = thumb_path
+
         JOBS[job_id]['results'] = results
         JOBS[job_id]['status'] = 'completed'
     except Exception as e:
@@ -108,7 +119,40 @@ def job_results(job_id):
     job = JOBS.get(job_id)
     if not job or job['status'] != 'completed':
         return redirect(url_for('index'))
-    return render_template('results.html', results=job['results'])
+    return render_template('results.html', results=job['results'], job_id=job_id)
+
+@app.route('/download_all/<job_id>', methods=['GET'])
+def download_all(job_id):
+    job = JOBS.get(job_id)
+    if not job or job['status'] != 'completed':
+        return redirect(url_for('index'))
+
+    results = job['results']
+
+    # Create a zip file in memory
+    memory_file = io.BytesIO()
+    with zipfile.ZipFile(memory_file, 'w', zipfile.ZIP_DEFLATED) as zf:
+        for result in results:
+            if result.get('thumbnail'):
+                # Convert URL path back to file path if needed
+                # result['thumbnail'] is like '/static/thumbnails/xyz.jpg'
+                # We need 'static/thumbnails/xyz.jpg' relative to CWD
+
+                # Strip leading slash
+                file_path = result['thumbnail'].lstrip('/')
+
+                if os.path.exists(file_path):
+                    # Add to zip with the base filename
+                    zf.write(file_path, os.path.basename(file_path))
+
+    memory_file.seek(0)
+
+    return send_file(
+        memory_file,
+        mimetype='application/zip',
+        as_attachment=True,
+        download_name=f'miniatures_{job_id}.zip'
+    )
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
