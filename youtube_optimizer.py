@@ -207,28 +207,28 @@ class YoutubeOptimizer:
             # We add "catchy" keywords to the prompt since the user requested catchy thumbnails
             prompt = f"A high quality, catchy YouTube thumbnail for a video titled '{title}'. Bright colors, high contrast, 16:9 aspect ratio. No text."
             
-            model = "gpt-image-1.5"
-            size = "1536x1024"
+            # Default OpenAI settings (optimized for cost)
+            model = "dall-e-3"
+            size = "1024x1024"
+            quality = "standard"
 
             if self.provider == "together":
                 model = "black-forest-labs/FLUX.1-schnell"
-                # Flux supports standard sizes, usually 1024x1024 or similar, but let's try to request landscape if possible
-                # or just standard 1024x1024 and crop. Together AI image gen usually takes width/height in body if not standard OpenAI format,
-                # but using the OpenAI client wrapper usually forces standard params.
-                # Flux via Together often maps 'size' to width/height.
-                # Let's use 1024x768 or similar if supported, otherwise 1024x1024.
-                # OpenAI client enforces 'size' enum often.
-                # If using OpenAI client with Together, we might need to be careful with 'size' param.
-                # '1024x1024' is safest.
                 size = "1024x1024"
+                # Together/Flux doesn't typically use 'quality' param in the OpenAI compat layer in the same way,
+                # or ignores it. We remove it for Together to be safe.
+                quality = None
 
-            response = self.client.images.generate(
-                model=model,
-                prompt=prompt,
-                size=size,
-                # quality="high", # Flux via Together might not support 'quality' param
-                n=1,
-            )
+            kwargs = {
+                "model": model,
+                "prompt": prompt,
+                "size": size,
+                "n": 1,
+            }
+            if quality:
+                kwargs["quality"] = quality
+
+            response = self.client.images.generate(**kwargs)
             
             image_data = response.data[0]
             
