@@ -16,7 +16,10 @@
 </head>
 <body>
     <a href="/" class="back-link">&larr; Retour</a>
-    <h1>Miniatures Générées</h1>
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h1>Miniatures Générées</h1>
+        <a href="{{ url_for('download_all', job_id=job_id) }}" class="btn" style="background-color: #28a745;">Tout télécharger (ZIP)</a>
+    </div>
     
     <div class="grid">
         {% for result in results %}
