@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Résultats - Générateur de Miniatures YouTube</title>
+    <style>
+        body { font-family: sans-serif; max-width: 1000px; margin: 0 auto; padding: 20px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
+        .card { border: 1px solid #ddd; padding: 10px; border-radius: 5px; background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .card img { width: 100%; height: auto; display: block; margin-bottom: 10px; border-radius: 4px; }
+        .card h3 { font-size: 16px; margin: 0 0 10px 0; }
+        .btn { display: inline-block; padding: 8px 16px; background-color: #007bff; color: white; text-decoration: none; border-radius: 4px; }
+        .back-link { display: inline-block; margin-bottom: 20px; color: #666; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <a href="/" class="back-link">&larr; Retour</a>
+    <h1>Miniatures Générées</h1>
+    
+    <div class="grid">
+        {% for result in results %}
+        <div class="card">
+            <h3>{{ result.title }}</h3>
+            {% if result.thumbnail %}
+                <img src="{{ result.thumbnail }}" alt="Miniature pour {{ result.title }}">
+                <a href="{{ result.thumbnail }}" download class="btn">Télécharger</a>
+            {% else %}
+                <p style="color: red;">Erreur lors de la génération</p>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</body>
+</html>

@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Génération en cours...</title>
+    <style>
+        body { font-family: sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; text-align: center; }
+        .progress-container { width: 100%; background-color: #f3f3f3; border-radius: 5px; margin: 20px 0; }
+        .progress-bar { width: 0%; height: 30px; background-color: #4CAF50; border-radius: 5px; transition: width 0.5s; }
+        .status-text { margin-bottom: 20px; font-size: 18px; }
+    </style>
+    <script>
+        function checkStatus() {
+            const jobId = "{{ job_id }}";
+            fetch(`/status/${jobId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'completed') {
+                        window.location.href = `/results/${jobId}`;
+                    } else if (data.status === 'error') {
+                        alert("Erreur: " + data.error);
+                        window.location.href = "/";
+                    } else {
+                        // Update progress bar
+                        const percentage = (data.current / data.total) * 100;
+                        document.getElementById('progressBar').style.width = percentage + '%';
+                        document.getElementById('statusText').innerText = `Traitement de la vidéo ${data.current} sur ${data.total}... (${data.current_title || ''})`;
+                        
+                        setTimeout(checkStatus, 1000);
+                    }
+                })
+                .catch(err => {
+                    console.error('Error fetching status:', err);
+                    setTimeout(checkStatus, 2000);
+                });
+        }
+        
+        window.onload = checkStatus;
+    </script>
+</head>
+<body>
+    <h1>Génération des miniatures en cours...</h1>
+    <p>Veuillez patienter, cela peut prendre quelques minutes.</p>
+    
+    <div class="status-text" id="statusText">Démarrage...</div>
+    
+    <div class="progress-container">
+        <div id="progressBar" class="progress-bar"></div>
+    </div>
+</body>
+</html>

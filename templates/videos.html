@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vidéos de la Chaîne - Générateur de Miniatures YouTube</title>
+    <style>
+        body { font-family: sans-serif; max-width: 1000px; margin: 0 auto; padding: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        .actions { margin-bottom: 20px; position: sticky; top: 0; background: white; padding: 10px 0; border-bottom: 2px solid #eee; }
+        button { padding: 8px 16px; margin-right: 10px; cursor: pointer; background-color: #007bff; color: white; border: none; border-radius: 4px; }
+        button.generate { background-color: #28a745; }
+        button:hover { opacity: 0.9; }
+        .back-link { display: inline-block; margin-bottom: 20px; color: #666; text-decoration: none; }
+    </style>
+    <script>
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(function() {
+                // alert('Copié !'); // Optional feedback
+            }, function(err) {
+                console.error('Erreur lors de la copie :', err);
+            });
+        }
+
+        function getSelected(attribute) {
+            const checkboxes = document.querySelectorAll('input[name="selected_titles"]:checked');
+            let values = [];
+            checkboxes.forEach((checkbox) => {
+                if (attribute === 'value') {
+                    values.push(checkbox.value);
+                } else if (attribute === 'data-link') {
+                    values.push(checkbox.getAttribute('data-link'));
+                }
+            });
+            return values.join('\n');
+        }
+
+        function copySelectedTitles() {
+            const text = getSelected('value');
+            if (text) copyToClipboard(text);
+            else alert("Aucune vidéo sélectionnée.");
+        }
+
+        function copySelectedLinks() {
+            const text = getSelected('data-link');
+            if (text) copyToClipboard(text);
+            else alert("Aucune vidéo sélectionnée.");
+        }
+        
+        function toggleAll(source) {
+            checkboxes = document.getElementsByName('selected_titles');
+            for(var i=0, n=checkboxes.length;i<n;i++) {
+                checkboxes[i].checked = source.checked;
+            }
+        }
+    </script>
+</head>
+<body>
+    <a href="/" class="back-link">&larr; Retour</a>
+    <h1>Sélectionnez les vidéos</h1>
+    
+    <form action="/generate_selection" method="post">
+        <div class="actions">
+            <button type="button" onclick="copySelectedTitles()">Copier les Titres</button>
+            <button type="button" onclick="copySelectedLinks()">Copier les Liens</button>
+            <button type="submit" class="generate">Générer les Miniatures</button>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th><input type="checkbox" onclick="toggleAll(this)"></th>
+                    <th>Titre</th>
+                    <th>Lien</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for video in videos %}
+                <tr>
+                    <td>
+                        <input type="checkbox" name="selected_titles" value="{{ video.title }}" data-link="{{ video.url }}">
+                    </td>
+                    <td>{{ video.title }}</td>
+                    <td><a href="{{ video.url }}" target="_blank">{{ video.url }}</a></td>
+                    <td>
+                        <button type="button" onclick="copyToClipboard('{{ video.title | replace("'", "\\'") }}')" style="background:#6c757d; font-size:12px; padding:4px 8px;">Titre</button>
+                        <button type="button" onclick="copyToClipboard('{{ video.url }}')" style="background:#6c757d; font-size:12px; padding:4px 8px;">Lien</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </form>
+</body>
+</html>
