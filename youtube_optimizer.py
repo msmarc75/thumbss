@@ -88,17 +88,17 @@ class YoutubeOptimizer:
 
     def generate_thumbnail(self, title, output_path):
         """
-        Génère une miniature pour la vidéo via l'API OpenAI (DALL-E 3) et la sauvegarde localement.
+        Génère une miniature pour la vidéo via l'API OpenAI et la sauvegarde localement.
         """
         try:
             # Catchy prompt for high CTR, strictly no text or logos
             prompt = f"A viral, click-bait style YouTube thumbnail for the subject: '{title}'. Vivid colors, expressive, high impact, professional photography style, 4k resolution. NO TEXT, NO LOGOS."
             
             response = self.client.images.generate(
-                model="dall-e-3",
+                model="gpt-image-1-mini",
                 prompt=prompt,
                 size="1024x1024",
-                quality="standard",
+                # quality="standard", # Not sure if supported by this model, default to implicit
                 n=1,
             )
             
